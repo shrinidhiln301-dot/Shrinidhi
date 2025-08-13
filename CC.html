@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cloud Resource Monitor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(to right, #e3f2fd, #bbdefb);
+            margin: 0;
+            padding: 0;
+            text-align: center;
+        }
+        header {
+            background-color: #0d47a1;
+            color: white;
+            padding: 15px;
+            font-size: 1.5em;
+        }
+        section {
+            margin: 20px auto;
+            max-width: 600px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 1em;
+            color: white;
+            background-color: #1976d2;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #1565c0;
+        }
+        #chart {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>☁ Cloud Resource Monitoring & Alerts</header>
+
+    <section>
+        <p>Click the button to check current resource usage and get notified if limits are exceeded.</p>
+        <button onclick="checkResources()">Check Resources</button>
+        <div id="status"></div>
+        <canvas id="chart" width="400" height="200"></canvas>
+    </section>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        function checkResources() {
+            let cpuUsage = Math.floor(Math.random() * 101);
+            let memoryUsage = Math.floor(Math.random() * 101);
+
+            let statusMsg = CPU: ${cpuUsage}% | Memory: ${memoryUsage}%<br>;
+            if (cpuUsage > 80) {
+                statusMsg += "⚠ High CPU usage! Alert sent.<br>";
+            }
+            if (memoryUsage > 75) {
+                statusMsg += "⚠ Memory usage critical! Notification sent.<br>";
+            }
+            if (cpuUsage <= 80 && memoryUsage <= 75) {
+                statusMsg += "✅ All systems normal.";
+            }
+
+            document.getElementById("status").innerHTML = statusMsg;
+
+            // Display chart
+            const ctx = document.getElementById('chart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['CPU Usage', 'Memory Usage'],
+                    datasets: [{
+                        label: 'Usage (%)',
+                        data: [cpuUsage, memoryUsage],
+                        backgroundColor: ['#ef5350', '#42a5f5']
+                    }]
+                },
+                options: { responsive: true }
+            });
+        }
+    </script>
+
+</body>
+</html>
