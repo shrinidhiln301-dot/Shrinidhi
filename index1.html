@@ -1,0 +1,151 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cloud Resource Monitor — Offline</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --bg:#f6f7fb; --card:#ffffff; --accent:#2250f4; --ok:#2e7d32; --warn:#c62828; }
+    * { box-sizing: border-box; }
+    body {
+      margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: linear-gradient(120deg,#e9efff 0%, #f6f7fb 60%);
+      color:#111; display:flex; min-height:100vh; align-items:center; justify-content:center;
+    }
+    .wrap { width: min(720px, 92vw); }
+    header {
+      background:#0d2bd7; color:#fff; padding:16px 20px; border-radius:14px;
+      box-shadow: 0 8px 30px rgba(13,43,215,0.25); font-weight:600; letter-spacing:.2px;
+    }
+    main {
+      background:var(--card); margin-top:14px; padding:18px; border-radius:14px;
+      box-shadow: 0 6px 24px rgba(0,0,0,.08);
+    }
+    .row { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+    @media (max-width:640px){ .row { grid-template-columns: 1fr; } }
+    .card { border:1px solid #eef2ff; border-radius:12px; padding:14px; background:#fff; }
+    .title { font-size:14px; font-weight:600; opacity:.8; margin-bottom:6px; }
+    .value { font-size:22px; font-weight:700; margin:6px 0 10px; }
+    progress { width:100%; height:16px; border: none; border-radius:10px; background:#eee; }
+    progress::-webkit-progress-bar { background:#eee; border-radius:10px; }
+    progress.ok::-webkit-progress-value { background: var(--ok); border-radius:10px; }
+    progress.warn::-webkit-progress-value { background: var(--warn); border-radius:10px; }
+    progress.ok::progress-value { background: var(--ok); }
+    progress.warn::progress-value { background: var(--warn); }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+    button, .toggle {
+      appearance:none; border:none; background:var(--accent); color:#fff; padding:10px 14px;
+      border-radius:10px; font-weight:600; cursor:pointer;
+      box-shadow: 0 6px 16px rgba(34,80,244,.25);
+    }
+    .toggle { background:#162a6b; }
+    #status { margin-top:14px; background:#f7faff; border:1px solid #e1e8ff; padding:12px; border-radius:10px; }
+    .ok { color:var(--ok); font-weight:700; }
+    .warn { color:var(--warn); font-weight:700; }
+    .small { font-size:12px; opacity:.7; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>☁ Cloud Resource Monitoring & Alerts (Offline Safe)</header>
+    <main>
+      <div class="row">
+        <div class="card">
+          <div class="title">CPU Usage</div>
+          <div class="value" id="cpuVal">—%</div>
+          <progress id="cpuBar" max="100" value="0" class="ok"></progress>
+          <div id="cpuMsg" class="small">Waiting for check…</div>
+        </div>
+        <div class="card">
+          <div class="title">Memory Usage</div>
+          <div class="value" id="memVal">—%</div>
+          <progress id="memBar" max="100" value="0" class="ok"></progress>
+          <div id="memMsg" class="small">Waiting for check…</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="checkBtn">Run Health Check</button>
+        <button class="toggle" id="autoBtn" data-running="false">Start Auto (2s)</button>
+      </div>
+
+      <div id="status">Status: click “Run Health Check” to simulate metrics.</div>
+      <div class="small" style="margin-top:6px;">Thresholds: CPU ≥ 80% → Alert, Memory ≥ 75% → Notification</div>
+    </main>
+  </div>
+
+  <script>
+    // Basic “beep” to make alerts feel real (mobile requires a user gesture, the button click is enough)
+    let audioCtx;
+    function beep(freq=750, ms=140) {
+      try {
+        audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = "sine"; o.frequency.value = freq;
+        o.connect(g); g.connect(audioCtx.destination);
+        g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.2, audioCtx.currentTime + 0.02);
+        o.start();
+        setTimeout(()=>{ g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.02); o.stop(); }, ms);
+      } catch(e){ /* ignore if not supported */ }
+    }
+
+    function updateUI(cpu, mem) {
+      const cpuBar = document.getElementById('cpuBar');
+      const memBar = document.getElementById('memBar');
+      const cpuVal = document.getElementById('cpuVal');
+      const memVal = document.getElementById('memVal');
+      const cpuMsg = document.getElementById('cpuMsg');
+      const memMsg = document.getElementById('memMsg');
+      const status = document.getElementById('status');
+
+      cpuBar.value = cpu; memBar.value = mem;
+      cpuVal.textContent = cpu + '%'; memVal.textContent = mem + '%';
+
+      // thresholds
+      const cpuAlert = cpu >= 80;
+      const memAlert = mem >= 75;
+
+      cpuBar.classList.toggle('warn', cpuAlert);
+      cpuBar.classList.toggle('ok', !cpuAlert);
+      memBar.classList.toggle('warn', memAlert);
+      memBar.classList.toggle('ok', !memAlert);
+
+      cpuMsg.innerHTML = cpuAlert ? "<span class='warn'>⚠ High CPU — Alert sent</span>" : "<span class='ok'>✓ CPU normal</span>";
+      memMsg.innerHTML = memAlert ? "<span class='warn'>⚠ Memory Critical — Notification sent</span>" : "<span class='ok'>✓ Memory normal</span>";
+
+      status.innerHTML = `Status: CPU ${cpu}% | Memory ${mem}% — `
+        + (cpuAlert || memAlert ? "<span class='warn'>Issues detected</span>" : "<span class='ok'>All systems nominal</span>");
+
+      if (cpuAlert || memAlert) beep(820, 160);
+    }
+
+    function simulate() {
+      const cpu = Math.floor(Math.random() * 101);
+      const mem = Math.floor(Math.random() * 101);
+      updateUI(cpu, mem);
+    }
+
+    // Buttons
+    document.getElementById('checkBtn').addEventListener('click', simulate);
+
+    let timer = null;
+    const autoBtn = document.getElementById('autoBtn');
+    autoBtn.addEventListener('click', () => {
+      const running = autoBtn.getAttribute('data-running') === 'true';
+      if (running) {
+        clearInterval(timer); timer = null;
+        autoBtn.textContent = 'Start Auto (2s)';
+        autoBtn.setAttribute('data-running','false');
+      } else {
+        simulate();
+        timer = setInterval(simulate, 2000);
+        autoBtn.textContent = 'Stop Auto';
+        autoBtn.setAttribute('data-running','true');
+      }
+    });
+  </script>
+</body>
+</html>
